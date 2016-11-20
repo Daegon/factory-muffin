@@ -16,6 +16,7 @@ use Exception;
 use League\FactoryMuffin\Exceptions\DeleteMethodNotFoundException;
 use League\FactoryMuffin\Exceptions\DeletingFailedException;
 use League\FactoryMuffin\Exceptions\FlushMethodNotFoundException;
+use League\FactoryMuffin\Exceptions\MergeMethodNotFoundException;
 use League\FactoryMuffin\Exceptions\SaveMethodNotFoundException;
 
 /**
@@ -41,11 +42,11 @@ class RepositoryStore extends AbstractStore implements StoreInterface
      * @param object      $storage
      * @param string|null $saveMethod
      * @param string|null $deleteMethod
-     * @param string|null $deleteMethod
+     * @param string|null $mergeMethod
      *
      * @return void
      */
-    public function __construct($storage, $saveMethod = null, $deleteMethod = null, $flushMethod = null)
+    public function __construct($storage, $saveMethod = null, $deleteMethod = null, $flushMethod = null, $mergeMethod = null)
     {
         $this->storage = $storage;
 
@@ -53,6 +54,7 @@ class RepositoryStore extends AbstractStore implements StoreInterface
             'save'   => $saveMethod ?: 'persist',
             'delete' => $deleteMethod ?: 'remove',
             'flush'  => $flushMethod ?: 'flush',
+            'merge' => $mergeMethod ?: 'merge',
         ];
     }
 
@@ -117,9 +119,31 @@ class RepositoryStore extends AbstractStore implements StoreInterface
             throw new DeleteMethodNotFoundException(get_class($this->storage), $method);
         }
 
+        $model = $this->merge($model);
+
         $this->storage->$method($model);
 
         return true;
+    }
+
+    /**
+     * Merge our object to current storage.
+     *
+     * @param object $model The model instance.
+     *
+     * @throws \League\FactoryMuffin\Exceptions\MergeMethodNotFoundException
+     *
+     * @return object
+     */
+    protected function merge($model)
+    {
+        $method = $this->methods['merge'];
+
+        if (!method_exists($this->storage, $method) || !is_callable([$this->storage, $method])) {
+            throw new MergeMethodNotFoundException(get_class($this->storage), $method);
+        }
+
+        return $this->storage->$method($model);
     }
 
     /**
